@@ -28,7 +28,6 @@ to the everyday reader. Just give me the summarization and nothing else.
 """
 
 def load_ocr_model(language='en', use_angle=True):
-    """Initialize PaddleOCR with specified settings"""
     try:
         return PaddleOCR(
             use_angle_cls=use_angle,
@@ -135,12 +134,6 @@ def main():
         if st.button("Run Model") and text_input:
             llm_response = run_gpt(prompt, text_input)
             st.markdown(llm_response)
-            
-    
-    
-    
-        
-        
 
 if __name__ == "__main__":
     main()

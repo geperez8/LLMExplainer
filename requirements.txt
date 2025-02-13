@@ -1,0 +1,8 @@
+requests
+streamlit
+openai
+python-dotenv
+pymupdf
+numpy
+paddleocr
+pandas

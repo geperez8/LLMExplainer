@@ -3,7 +3,7 @@ import streamlit as st
 from openai import OpenAI
 from streamlit import secrets
 from dotenv import load_dotenv
-import fitz  # PyMuPDF
+import fitz  
 import numpy as np
 from paddleocr import PaddleOCR
 import pandas as pd

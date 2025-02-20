@@ -34,44 +34,38 @@ def create_vector_store(store_name):
         st.error(f"Error creating vector store: {str(e)}")
         return None
 
-def process_uploaded_file(vector_store_id, uploaded_file):
-    """Process uploaded file and add it to the vector store."""
+def process_uploaded_file(uploaded_file):
+    """Process the uploaded file and create an OpenAI file."""
     if not uploaded_file:
         return None
-
+    
     temp_file = None
-    file_stream = None
     
     try:
-        # Create a temporary file to store the document
         temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.' + uploaded_file.name.split('.')[-1])
-        
-        # Write the uploaded content to the temporary file
+
         temp_file.write(uploaded_file.getvalue())
         temp_file.seek(0)
-
-        file_stream = open(temp_file.name, "rb")
         
-        # Upload file to vector store
-        file_batch = client.beta.vector_stores.file_batches.upload_and_poll(
-            vector_store_id=vector_store_id,
-            files=[file_stream]
+        message_file = client.files.create(
+            file=open(temp_file.name, "rb"),
+            purpose="assistants"
         )
-
-
         
-        return file_batch
+        return message_file
+    
     except Exception as e:
         st.error(f"Error processing file: {str(e)}")
         return None
-
+    
     finally:
-        if file_stream:
-            file_stream.close()
+        # Clean up resources
         if temp_file:
             temp_file.close()
-            os.unlink(temp_file.name)
-        
+            try:
+                os.unlink(temp_file.name)  # Delete the temporary file
+            except Exception as e:
+                st.warning(f"Could not delete temporary file: {str(e)}")
 
 def main():
     st.title("Document Explainer")
@@ -86,12 +80,24 @@ def main():
     if uploaded_file is not None:
         if st.button("Analyze Document"):
             with st.spinner('Processing document...'):
-                # Create a vector store for this file
-                vector_store = create_vector_store(f"store_{uploaded_file.name}")
+                # Process the uploaded file
+                message_file = process_uploaded_file(uploaded_file)
                 
-                if vector_store:
-                    # Process the uploaded file
-                    file_batch = process_uploaded_file(vector_store.id, uploaded_file)
+                if message_file:
+                # Create a thread with the file attachment
+                    thread = client.beta.threads.create(
+                        messages=[{
+                            "role": "user",
+                            "content": "Please analyze this document and provide a clear explanation for the general public.",
+                            "file_ids": [message_file.id]
+                        }]
+                    )
+                
+                   
+                else:
+                    st.error("Failed to process the uploaded file.")
+                
+
 
 if __name__ == "__main__":
     main()

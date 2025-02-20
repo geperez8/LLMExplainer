@@ -3,6 +3,7 @@ from openai import OpenAI
 from streamlit import secrets
 import tempfile
 import time
+import os
 
 # Initialize OpenAI client
 client = OpenAI(api_key=secrets["OPENAI_KEY"])
@@ -33,6 +34,45 @@ def create_vector_store(store_name):
         st.error(f"Error creating vector store: {str(e)}")
         return None
 
+def process_uploaded_file(vector_store_id, uploaded_file):
+    """Process uploaded file and add it to the vector store."""
+    if not uploaded_file:
+        return None
+
+    temp_file = None
+    file_stream = None
+    
+    try:
+        # Create a temporary file to store the document
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.' + uploaded_file.name.split('.')[-1])
+        
+        # Write the uploaded content to the temporary file
+        temp_file.write(uploaded_file.getvalue())
+        temp_file.seek(0)
+
+        file_stream = open(temp_file.name, "rb")
+        
+        # Upload file to vector store
+        file_batch = client.beta.vector_stores.file_batches.upload_and_poll(
+            vector_store_id=vector_store_id,
+            files=[file_stream]
+        )
+
+
+        
+        return file_batch
+    except Exception as e:
+        st.error(f"Error processing file: {str(e)}")
+        return None
+
+    finally:
+        if file_stream:
+            file_stream.close()
+        if temp_file:
+            temp_file.close()
+            os.unlink(temp_file.name)
+        
+
 def main():
     st.title("Document Explainer")
     
@@ -49,7 +89,9 @@ def main():
                 # Create a vector store for this file
                 vector_store = create_vector_store(f"store_{uploaded_file.name}")
                 
-                
+                if vector_store:
+                    # Process the uploaded file
+                    file_batch = process_uploaded_file(vector_store.id, uploaded_file)
 
 if __name__ == "__main__":
     main()

@@ -23,3 +23,13 @@ def create_assistant():
     except Exception as e:
         st.error(f"Error creating assistant: {str(e)}")
         return None
+
+
+def create_vector_store(store_name):
+    """Create a new vector store with the given name."""
+    try:
+        return client.beta.vector_stores.create(name=store_name)
+    except Exception as e:
+        st.error(f"Error creating vector store: {str(e)}")
+        return None
+

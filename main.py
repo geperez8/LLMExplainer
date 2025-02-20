@@ -33,3 +33,23 @@ def create_vector_store(store_name):
         st.error(f"Error creating vector store: {str(e)}")
         return None
 
+def main():
+    st.title("Document Explainer")
+    
+    # Create assistant if not already created
+    if 'assistant' not in st.session_state:
+        with st.spinner('Initializing assistant...'):
+            st.session_state.assistant = create_assistant()
+    
+    uploaded_file = st.file_uploader("Upload a document", type=["pdf", "txt", "doc", "docx"])
+    
+    if uploaded_file is not None:
+        if st.button("Analyze Document"):
+            with st.spinner('Processing document...'):
+                # Create a vector store for this file
+                vector_store = create_vector_store(f"store_{uploaded_file.name}")
+                
+                
+
+if __name__ == "__main__":
+    main()

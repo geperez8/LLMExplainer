@@ -2,7 +2,6 @@ import streamlit as st
 from openai import OpenAI
 from streamlit import secrets
 import tempfile
-import time
 import os
 
 # Initialize OpenAI client
@@ -25,15 +24,6 @@ def create_assistant():
         st.error(f"Error creating assistant: {str(e)}")
         return None
 
-
-def create_vector_store(store_name):
-    """Create a new vector store with the given name."""
-    try:
-        return client.beta.vector_stores.create(name=store_name)
-    except Exception as e:
-        st.error(f"Error creating vector store: {str(e)}")
-        return None
-
 def process_uploaded_file(uploaded_file):
     """Process the uploaded file and create an OpenAI file."""
     if not uploaded_file:
@@ -42,11 +32,13 @@ def process_uploaded_file(uploaded_file):
     temp_file = None
     
     try:
+        # Create a temporary file
         temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.' + uploaded_file.name.split('.')[-1])
-
+        # Write the uploaded content to the temporary file
         temp_file.write(uploaded_file.getvalue())
         temp_file.seek(0)
         
+        # Upload the file to OpenAI
         message_file = client.files.create(
             file=open(temp_file.name, "rb"),
             purpose="assistants"
@@ -57,15 +49,42 @@ def process_uploaded_file(uploaded_file):
     except Exception as e:
         st.error(f"Error processing file: {str(e)}")
         return None
+
+def run_assistant_analysis(assistant_id, thread_id):
+    """Run the assistant analysis and return the response."""
+    try:
+        # Create and poll the run
+        run = client.beta.threads.runs.create_and_poll(
+            thread_id=thread_id,
+            assistant_id=assistant_id
+        )
+        
+        # Get the messages from the thread
+        messages = list(client.beta.threads.messages.list(thread_id=thread_id, run_id=run.id))
+        
+        
+
+        message_content = messages[0].content[0].text
+        annotations = message_content.annotations
+        citations = []
+        for index, annotation in enumerate(annotations):
+            message_content.value = message_content.value.replace(annotation.text, f"[{index}]")
+            if file_citation := getattr(annotation, "file_citation", None):
+                cited_file = client.files.retrieve(file_citation.file_id)
+                citations.append(f"[{index}] {cited_file.filename}")
+
+        print(message_content.value)
+        print("\n".join(citations))
+
+        for message in messages:
+            if message.role == "assistant":
+                return message.content[0].text.value
+        
+        return "No response received from the assistant."
     
-    finally:
-        # Clean up resources
-        if temp_file:
-            temp_file.close()
-            try:
-                os.unlink(temp_file.name)  # Delete the temporary file
-            except Exception as e:
-                st.warning(f"Could not delete temporary file: {str(e)}")
+    except Exception as e:
+        st.error(f"Error running analysis: {str(e)}")
+        return None
 
 def main():
     st.title("Document Explainer")
@@ -80,24 +99,29 @@ def main():
     if uploaded_file is not None:
         if st.button("Analyze Document"):
             with st.spinner('Processing document...'):
-                # Process the uploaded file
+                # Upload file to OpenAI
                 message_file = process_uploaded_file(uploaded_file)
                 
                 if message_file:
-                # Create a thread with the file attachment
+                    # Create a thread with the file attachment
                     thread = client.beta.threads.create(
                         messages=[{
                             "role": "user",
                             "content": "Please analyze this document and provide a clear explanation for the general public.",
-                            "file_ids": [message_file.id]
+                            "attachments": [{"file_id": message_file.id, "tools": [{"type": "file_search"}] }]
                         }]
                     )
-                
-                   
+                    
+                    # Run the analysis
+                    response = run_assistant_analysis(st.session_state.assistant.id, thread.id)
+                    
+                    if response:
+                        st.markdown("## Analysis")
+                        st.markdown(response)
+                    else:
+                        st.error("Failed to get analysis from the assistant.")
                 else:
                     st.error("Failed to process the uploaded file.")
-                
-
 
 if __name__ == "__main__":
     main()

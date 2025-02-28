@@ -69,9 +69,12 @@ def run_assistant_analysis(assistant_id, thread_id):
             return "No response received from the assistant."
 
         message_content = messages[0].content[0].text  # Main assistant response
+        print(message_content)
         annotations = getattr(message_content, "annotations", [])
 
         extracted_citations = []
+
+        print(annotations)
 
         # Extract text associated with each citation
         for annotation in annotations:
@@ -107,9 +110,9 @@ def run_assistant_analysis(assistant_id, thread_id):
 
 thread_instructions = """
     Please analyze this document and provide a clear explanation for the general public. 
-    Also return a json object every single citation being referenced in the text. In the
-    json object, the key should be the citation marker within the explainer response and 
-    the value should be the reference text from the original document. Every single reference
+    Adiitionally, return a json object with every single citation being referenced in the 
+    text. In the json object, the key should be the citation marker within the explainer response 
+    and the value should be the reference text from the original document. Every single reference
     in the explainer response should have an attributed text in the json of citations. There 
     should be a one-to-one correspondence between the citation markers in the explainer response
     and the references in the json object.
@@ -117,56 +120,22 @@ thread_instructions = """
     # Output format
 
     The output should contain the main explanation for the general public, which may include context, 
-    keyfinding, whyc it matters to ther everyday reader, and a conclusion. There should also be a 
-    json object containing the citations. Here is an example response and how you should format it:
-
-    ## Overview
-    The paper under review examines the capabilities of Large Language Models (LLMs), such as GPT-2, in 
-    learning languages that are considered impossible for humans to learn, a claim initially posed by 
-    linguist Noam Chomsky and colleagues[0]. It challenges traditional assumptions that language models 
-    can learn both feasible human languages and those considered impossible due to their unnatural grammar 
-    rules or structure[1].
-
-    ## Key Findings
-    Language Learning Capabilities of LLMs: The study put forward experimental evidence showing that GPT-2 
-    struggles to learn "impossible" languages, which include random word order or rules that violate common 
-    grammatical norms, more than it does with structured, possible human languages[2][1].
-
-    Experiment Setup and Results: Several experiments were conducted to assess the proficiency of GPT-2 
-    models on these languages. Experiments showed that while LLMs are well-versed with grammatical 
-    structures of feasible languages, they perform poorly when trained on synthetic languages devised 
-    with unnatural patterns[4]. For instance, the models exhibited higher perplexity scores for impossible 
-    languages, indicating difficulty in learning these languages compared to natural ones[5][6].
-
-    Implications on Linguistic Theories: This investigation questions strong claims made by Chomsky et al. 
-    regarding the boundary between language models' capabilities and human linguistic cognition, suggesting 
-    that LLMs may still provide insights into linguistic patterns distinct from human learning mechanisms[1][8].
-
-    ## Why It Matters
-    Understanding the capabilities and limitations of LLMs is crucial as these models rapidly integrate into
-    various applications, ranging from text generation to potentially providing insights into human 
-    cognitive processes. The paper's findings assert that while LLMs exhibit sophisticated learning of 
-    natural language structures, their struggles with impossible languages highlight fundamental differences 
-    from human cognitive processes[9].
-
-    ## Conclusion
-    The study provides critical insights into the debate about the potential and limitations of LLMs in 
-    language learning. It challenges existing claims about LLMs being unrestricted in what they can learn 
-    and reinforces the need for further experiments to clarify their position within linguistic and 
-    cognitive sciences[8].
+    key findings, why it matters to ther everyday reader, and a conclusion. Include whatever additional 
+    information you deem important. There should also be a json object containing the citations. Here is 
+    an example response for the json of quotes from the source document and how you should format it:
 
     ```json
     {
-    "0": "In the present paper, we provide extensive new experimental evidence to inform the claim that LLMs are equally capable of learning possible and impossible languages in the human sense.",
-    "1": "Chomsky and others have very directly claimed that LLMs are equally capable of learning languages that are possible and impossible for humans to learn.",
-    "2": "Our core finding is that GPT-2 struggles to learn impossible languages when compared to English as a control, challenging the core claim.",
-    "3": "Our experiments can inform the core hypotheses as follows: if LLMs learn these languages as well as they learn natural languages, then the claims of Chomsky and others are supported.",
-    "4": "These authors state this claim in absolute terms. For example, Chomsky et al. (2023) flatly assert that LLMs 'are incapable of distinguishing the possible from the impossible'.",
-    "5": "Our paper complements this line of work, providing evidence for the utility of LLMs as models of language learning.",
-    "6": "At the same time, conclusions about LLMs’ linguistic competence and preferences for natural languages should be informed by an understanding of the ways that models fundamentally differ from humans.",
-    "7": "The current paper raises further questions along similar lines. Since we do find that real languages are more learnable by GPT-2, this leads us to wonder what inductive bias the GPTs have which matches natural language.",
-    "8": "We believe that this inductive bias is related to information locality, the tendency for statistical correlations in text to be relatively short-range.",
-    "9": "Contra claims by Chomsky and others that LLMs cannot possibly inform our understanding of human language, we argue there is great value in treating LLMs as a comparative system for human language and in understanding what systems like LLMs can and cannot learn."
+        "0": "In the present paper, we provide extensive new experimental evidence to inform the claim that LLMs are equally capable of learning possible and impossible languages in the human sense.",
+        "1": "Chomsky and others have very directly claimed that LLMs are equally capable of learning languages that are possible and impossible for humans to learn.",
+        "2": "Our core finding is that GPT-2 struggles to learn impossible languages when compared to English as a control, challenging the core claim.",
+        "3": "Our experiments can inform the core hypotheses as follows: if LLMs learn these languages as well as they learn natural languages, then the claims of Chomsky and others are supported.",
+        "4": "These authors state this claim in absolute terms. For example, Chomsky et al. (2023) flatly assert that LLMs 'are incapable of distinguishing the possible from the impossible'.",
+        "5": "Our paper complements this line of work, providing evidence for the utility of LLMs as models of language learning.",
+        "6": "At the same time, conclusions about LLMs’ linguistic competence and preferences for natural languages should be informed by an understanding of the ways that models fundamentally differ from humans.",
+        "7": "The current paper raises further questions along similar lines. Since we do find that real languages are more learnable by GPT-2, this leads us to wonder what inductive bias the GPTs have which matches natural language.",
+        "8": "We believe that this inductive bias is related to information locality, the tendency for statistical correlations in text to be relatively short-range.",
+        "9": "Contra claims by Chomsky and others that LLMs cannot possibly inform our understanding of human language, we argue there is great value in treating LLMs as a comparative system for human language and in understanding what systems like LLMs can and cannot learn."
     }
     ```
 

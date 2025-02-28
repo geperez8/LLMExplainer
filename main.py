@@ -13,9 +13,12 @@ def create_assistant():
         assistant = client.beta.assistants.create(
             name="Document Explainer",
             instructions="""You are a journalist who is trying to write an explainer for the general public. 
-            You are tasked with taking sources that use a lot of jargon and can be confusing for general readers. 
-            You have to make your explainer straightforward, with journalistic language, clear subsections, 
-            concrete takeaways, and reasons for why this information is relevant to the everyday reader.""",
+            You are tasked with taking sources that use a lot of jargon and can be confusing for general readers
+            and making them more digestable. You have to make your explainer straightforward, with journalistic 
+            language, clear subsections, concrete takeaways, and reasons for why this information is relevant 
+            to the everyday reader. Assume the reader has a is not an expert in the field and would need additional
+            context when it comes to very complex topics.
+            """,
             model="gpt-4o",
             tools=[{"type": "file_search"}]
         )
@@ -51,40 +54,124 @@ def process_uploaded_file(uploaded_file):
         return None
 
 def run_assistant_analysis(assistant_id, thread_id):
-    """Run the assistant analysis and return the response."""
+    """Run the assistant analysis and extract citation-related text."""
     try:
-        # Create and poll the run
+        # Run the assistant on the given thread
         run = client.beta.threads.runs.create_and_poll(
             thread_id=thread_id,
             assistant_id=assistant_id
         )
         
-        # Get the messages from the thread
+        # Retrieve messages from the thread
         messages = list(client.beta.threads.messages.list(thread_id=thread_id, run_id=run.id))
-        
-        
 
-        message_content = messages[0].content[0].text
-        annotations = message_content.annotations
-        citations = []
+        if not messages:
+            return "No response received from the assistant."
+
+        message_content = messages[0].content[0].text  # Main assistant response
+        annotations = getattr(message_content, "annotations", [])
+
+        extracted_citations = []
+
+        # Extract text associated with each citation
+        for annotation in annotations:
+            if annotation.type == "file_citation":  # Check for citation type
+                cited_text = message_content.value[annotation.start_index:annotation.end_index]
+                extracted_citations.append({
+                    "citation_marker": annotation.text,
+                    "extracted_text": cited_text
+                })
+
+        # Replace citation markers in the response with indexed references
+        response_text = message_content.value
+
+        # extract json
+        # json_extract_pattern = re.compile(r"```json\n(.*?)\n```", re.DOTALL)
+        # json_extract = json_extract_pattern.search(txt).group(1)
         for index, annotation in enumerate(annotations):
-            message_content.value = message_content.value.replace(annotation.text, f"[{index}]")
-            if file_citation := getattr(annotation, "file_citation", None):
-                cited_file = client.files.retrieve(file_citation.file_id)
-                citations.append(f"[{index}] {cited_file.filename}")
+            response_text = response_text.replace(annotation.text, f"[{index}]")
 
-        print(message_content.value)
-        print("\n".join(citations))
+        # Display extracted citations
+        citation_display = "\n".join([f"[{i}] {c['citation_marker']}: {c['extracted_text']}" for i, c in enumerate(extracted_citations)])
 
-        for message in messages:
-            if message.role == "assistant":
-                return message.content[0].text.value
-        
-        return "No response received from the assistant."
+        # Print output for debugging
+        # print(response_text)
+        print(citation_display)
+
+        return response_text
     
     except Exception as e:
         st.error(f"Error running analysis: {str(e)}")
         return None
+
+
+thread_instructions = """
+    Please analyze this document and provide a clear explanation for the general public. 
+    Also return a json object every single citation being referenced in the text. In the
+    json object, the key should be the citation marker within the explainer response and 
+    the value should be the reference text from the original document. Every single reference
+    in the explainer response should have an attributed text in the json of citations. There 
+    should be a one-to-one correspondence between the citation markers in the explainer response
+    and the references in the json object.
+
+    # Output format
+
+    The output should contain the main explanation for the general public, which may include context, 
+    keyfinding, whyc it matters to ther everyday reader, and a conclusion. There should also be a 
+    json object containing the citations. Here is an example response and how you should format it:
+
+    ## Overview
+    The paper under review examines the capabilities of Large Language Models (LLMs), such as GPT-2, in 
+    learning languages that are considered impossible for humans to learn, a claim initially posed by 
+    linguist Noam Chomsky and colleagues[0]. It challenges traditional assumptions that language models 
+    can learn both feasible human languages and those considered impossible due to their unnatural grammar 
+    rules or structure[1].
+
+    ## Key Findings
+    Language Learning Capabilities of LLMs: The study put forward experimental evidence showing that GPT-2 
+    struggles to learn "impossible" languages, which include random word order or rules that violate common 
+    grammatical norms, more than it does with structured, possible human languages[2][1].
+
+    Experiment Setup and Results: Several experiments were conducted to assess the proficiency of GPT-2 
+    models on these languages. Experiments showed that while LLMs are well-versed with grammatical 
+    structures of feasible languages, they perform poorly when trained on synthetic languages devised 
+    with unnatural patterns[4]. For instance, the models exhibited higher perplexity scores for impossible 
+    languages, indicating difficulty in learning these languages compared to natural ones[5][6].
+
+    Implications on Linguistic Theories: This investigation questions strong claims made by Chomsky et al. 
+    regarding the boundary between language models' capabilities and human linguistic cognition, suggesting 
+    that LLMs may still provide insights into linguistic patterns distinct from human learning mechanisms[1][8].
+
+    ## Why It Matters
+    Understanding the capabilities and limitations of LLMs is crucial as these models rapidly integrate into
+    various applications, ranging from text generation to potentially providing insights into human 
+    cognitive processes. The paper's findings assert that while LLMs exhibit sophisticated learning of 
+    natural language structures, their struggles with impossible languages highlight fundamental differences 
+    from human cognitive processes[9].
+
+    ## Conclusion
+    The study provides critical insights into the debate about the potential and limitations of LLMs in 
+    language learning. It challenges existing claims about LLMs being unrestricted in what they can learn 
+    and reinforces the need for further experiments to clarify their position within linguistic and 
+    cognitive sciences[8].
+
+    ```json
+    {
+    "0": "In the present paper, we provide extensive new experimental evidence to inform the claim that LLMs are equally capable of learning possible and impossible languages in the human sense.",
+    "1": "Chomsky and others have very directly claimed that LLMs are equally capable of learning languages that are possible and impossible for humans to learn.",
+    "2": "Our core finding is that GPT-2 struggles to learn impossible languages when compared to English as a control, challenging the core claim.",
+    "3": "Our experiments can inform the core hypotheses as follows: if LLMs learn these languages as well as they learn natural languages, then the claims of Chomsky and others are supported.",
+    "4": "These authors state this claim in absolute terms. For example, Chomsky et al. (2023) flatly assert that LLMs 'are incapable of distinguishing the possible from the impossible'.",
+    "5": "Our paper complements this line of work, providing evidence for the utility of LLMs as models of language learning.",
+    "6": "At the same time, conclusions about LLMs’ linguistic competence and preferences for natural languages should be informed by an understanding of the ways that models fundamentally differ from humans.",
+    "7": "The current paper raises further questions along similar lines. Since we do find that real languages are more learnable by GPT-2, this leads us to wonder what inductive bias the GPTs have which matches natural language.",
+    "8": "We believe that this inductive bias is related to information locality, the tendency for statistical correlations in text to be relatively short-range.",
+    "9": "Contra claims by Chomsky and others that LLMs cannot possibly inform our understanding of human language, we argue there is great value in treating LLMs as a comparative system for human language and in understanding what systems like LLMs can and cannot learn."
+    }
+    ```
+
+    """
+
 
 def main():
     st.title("Document Explainer")
@@ -107,7 +194,7 @@ def main():
                     thread = client.beta.threads.create(
                         messages=[{
                             "role": "user",
-                            "content": "Please analyze this document and provide a clear explanation for the general public.",
+                            "content": thread_instructions,
                             "attachments": [{"file_id": message_file.id, "tools": [{"type": "file_search"}] }]
                         }]
                     )
@@ -116,7 +203,6 @@ def main():
                     response = run_assistant_analysis(st.session_state.assistant.id, thread.id)
                     
                     if response:
-                        st.markdown("## Analysis")
                         st.markdown(response)
                     else:
                         st.error("Failed to get analysis from the assistant.")

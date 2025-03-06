@@ -326,6 +326,10 @@ def main():
                             {
                                 "0": "The actual text from the document that citation 0 refers to",
                                 "1": "The actual text from the document that citation 1 refers to"
+                                "2": "The actual text from the document that citation 2 refers to",
+                                "3": "The actual text from the document that citation 3 refers to"
+                                "4": "The actual text from the document that citation 4 refers to",
+                                "5": "The actual text from the document that citation 5 refers to"
                             }
                             ```
                             

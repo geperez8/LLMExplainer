@@ -78,27 +78,27 @@ def process_uploaded_file(uploaded_file):
     """Process the uploaded file and create an OpenAI file."""
     if not uploaded_file:
         return None
-    
+
     temp_file = None
-    
+
     try:
         # Create a temporary file
         temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.' + uploaded_file.name.split('.')[-1])
+        
         # Write the uploaded content to the temporary file
         temp_file.write(uploaded_file.getvalue())
-        temp_file.seek(0)
-        
+        temp_file.close()  # CLOSE the file before reopening it
+
         # Upload the file to OpenAI
-        message_file = client.files.create(
-            file=open(temp_file.name, "rb"),
-            purpose="assistants"
-        )
-        
+        with open(temp_file.name, "rb") as f:
+            message_file = client.files.create(file=f, purpose="assistants")
+
         return message_file
-    
+
     except Exception as e:
         st.error(f"Error processing file: {str(e)}")
         return None
+
     finally:
         # Clean up the temporary file
         if temp_file and os.path.exists(temp_file.name):
